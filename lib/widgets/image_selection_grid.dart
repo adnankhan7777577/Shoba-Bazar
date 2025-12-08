@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_styles.dart';
+import '../utils/responsive_utils.dart';
 
 class ImageSelectionGrid extends StatelessWidget {
   final List<Map<String, dynamic>> items;
@@ -36,10 +37,10 @@ class ImageSelectionGrid extends StatelessWidget {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: ResponsiveUtils.getSmallGridCrossAxisCount(context),
+        crossAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+        mainAxisSpacing: ResponsiveUtils.getGridSpacing(context),
         childAspectRatio: 0.85,
       ),
       itemCount: items.length,

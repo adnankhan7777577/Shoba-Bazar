@@ -9,6 +9,7 @@ import '../../controller/profile/cubit.dart';
 import '../../controller/profile/state.dart';
 import '../../controller/add_product/cubit.dart';
 import '../../services/banner_service.dart';
+import '../../utils/responsive_utils.dart';
 import 'customer_search_screen.dart';
 import 'category_search_screen.dart';
 import 'brand_search_screen.dart';
@@ -449,41 +450,41 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             // Main Content with Banner
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: ResponsiveUtils.getScreenPadding(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 16),
+                    SizedBox(height: ResponsiveUtils.getSpacing(context)),
                     
                     // Banner Slider
                     _buildBannerSlider(),
                     
-                    const SizedBox(height: 20),
+                    SizedBox(height: ResponsiveUtils.getSpacing(context) * 1.25),
                     
                     // Shop by categories
                     _buildCategoriesSection(),
                     
-                    const SizedBox(height: 30),
+                    SizedBox(height: ResponsiveUtils.getSpacing(context) * 2),
                     
                     // Auto parts featuring
                     _buildFeaturedMakersSection(),
                     
-                    const SizedBox(height: 30),
+                    SizedBox(height: ResponsiveUtils.getSpacing(context) * 2),
                     
                     // Auto parts make
                     _buildAutoPartsMakeSection(),
                     
-                    const SizedBox(height: 30),
+                    SizedBox(height: ResponsiveUtils.getSpacing(context) * 2),
                     
                     // Hot Deals
                     _buildHotDealsSection(),
                     
-                    const SizedBox(height: 30),
+                    SizedBox(height: ResponsiveUtils.getSpacing(context) * 2),
                     
                     // Recently Added
                     _buildRecentlyAddedSection(),
                     
-                    const SizedBox(height: 20), // Reduced space since no bottom nav
+                    SizedBox(height: ResponsiveUtils.getSpacing(context) * 1.25), // Reduced space since no bottom nav
                   ],
                 ),
               ),
@@ -651,10 +652,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _buildBannerSlider() {
+    final bannerHeight = ResponsiveUtils.getBannerHeight(context);
     if (_isLoadingBanners) {
       return Container(
-        height: 200,
-        margin: const EdgeInsets.symmetric(horizontal: 16.0),
+        height: bannerHeight,
+        margin: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: Colors.grey[200],
@@ -670,8 +672,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     }
 
     return Container(
-      height: 200,
-      margin: const EdgeInsets.symmetric(horizontal: 16.0),
+      height: bannerHeight,
+      margin: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
       child: Stack(
         children: [
           // Banner slider
@@ -828,15 +830,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: ResponsiveUtils.getSpacing(context)),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: ResponsiveUtils.getCategoryGridCrossAxisCount(context),
+            crossAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+            mainAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+            childAspectRatio: ResponsiveUtils.getCategoryCardAspectRatio(context),
           ),
           itemCount: displayedCategories.length,
           itemBuilder: (context, index) {
@@ -1164,15 +1166,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: ResponsiveUtils.getSpacing(context)),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: ResponsiveUtils.getCategoryGridCrossAxisCount(context),
+            crossAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+            mainAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+            childAspectRatio: ResponsiveUtils.getCategoryCardAspectRatio(context),
           ),
           itemCount: displayedBrands.length,
           itemBuilder: (context, index) {
@@ -1339,10 +1341,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: ResponsiveUtils.getSpacing(context)),
         _isLoadingHotDeals
             ? SizedBox(
-                height: 200,
+                height: ResponsiveUtils.getBannerHeight(context),
                 child: Center(
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
@@ -1351,7 +1353,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               )
             : _hotDeals.isEmpty
                 ? SizedBox(
-                    height: 200,
+                    height: ResponsiveUtils.getBannerHeight(context),
                     child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1373,7 +1375,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     ),
                   )
                 : SizedBox(
-                    height: 200,
+                    height: ResponsiveUtils.getBannerHeight(context),
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: _hotDeals.length,
@@ -1383,6 +1385,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         final productName = deal['name'] as String;
                         final productPrice = deal['price'] as String;
                         final productData = deal['product'] as Map<String, dynamic>;
+                        final cardWidth = ResponsiveUtils.isMobile(context) ? 140.0 : ResponsiveUtils.isTablet(context) ? 160.0 : 180.0;
                         
                         return GestureDetector(
                           onTap: () {
@@ -1396,7 +1399,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                             );
                           },
                           child: Container(
-                            width: 140,
+                            width: cardWidth,
                             margin: const EdgeInsets.only(right: 16),
                             decoration: BoxDecoration(
                               color: AppColors.surface,
@@ -1467,13 +1470,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 // Product Details
                                 Expanded(
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: ResponsiveUtils.isMobile(context) ? 6.0 : 8.0,
+                                      vertical: ResponsiveUtils.isMobile(context) ? 4.0 : 6.0,
+                                    ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisSize: MainAxisSize.max,
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        SizedBox(
-                                          height: 36,
+                                        Flexible(
                                           child: Text(
                                             productName,
                                             style: AppTextStyles.bodySmall,
@@ -1481,25 +1487,32 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: 2),
                                         Text(
                                           productPrice,
                                           style: AppTextStyles.bodyMedium.copyWith(
                                             fontWeight: FontWeight.w600,
                                           ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                         const SizedBox(height: 2),
                                         Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
                                             const Icon(
                                               Icons.star,
                                               color: AppColors.warning,
-                                              size: 14,
+                                              size: 12,
                                             ),
                                             const SizedBox(width: 4),
-                                            Text(
-                                              (deal['rating'] as num? ?? 0.0).toStringAsFixed(1),
-                                              style: AppTextStyles.caption,
+                                            Flexible(
+                                              child: Text(
+                                                (deal['rating'] as num? ?? 0.0).toStringAsFixed(1),
+                                                style: AppTextStyles.caption,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -1582,10 +1595,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: ResponsiveUtils.getSpacing(context)),
         _isLoadingRecentlyAdded
             ? SizedBox(
-                height: 200,
+                height: ResponsiveUtils.getBannerHeight(context),
                 child: Center(
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
@@ -1594,7 +1607,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               )
             : _recentlyAdded.isEmpty
                 ? SizedBox(
-                    height: 200,
+                    height: ResponsiveUtils.getBannerHeight(context),
                     child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1616,7 +1629,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     ),
                   )
                 : SizedBox(
-                    height: 200,
+                    height: ResponsiveUtils.getBannerHeight(context),
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: _recentlyAdded.length,
@@ -1626,6 +1639,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         final productName = product['name'] as String;
                         final productPrice = product['price'] as String;
                         final productData = product['product'] as Map<String, dynamic>;
+                        final cardWidth = ResponsiveUtils.isMobile(context) ? 140.0 : ResponsiveUtils.isTablet(context) ? 160.0 : 180.0;
                         
                         return GestureDetector(
                           onTap: () {
@@ -1639,7 +1653,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                             );
                           },
                           child: Container(
-                            width: 140,
+                            width: cardWidth,
                             margin: const EdgeInsets.only(right: 16),
                             decoration: BoxDecoration(
                               color: AppColors.surface,
@@ -1658,7 +1672,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               children: [
                                 // Product Image
                                 Container(
-                                  height: 95,
+                                  height: ResponsiveUtils.isMobile(context) ? 95.0 : ResponsiveUtils.isTablet(context) ? 110.0 : 125.0,
                                   decoration: BoxDecoration(
                                     borderRadius: const BorderRadius.only(
                                       topLeft: Radius.circular(12),
@@ -1710,13 +1724,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 // Product Details
                                 Expanded(
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: ResponsiveUtils.isMobile(context) ? 6.0 : 8.0,
+                                      vertical: ResponsiveUtils.isMobile(context) ? 4.0 : 6.0,
+                                    ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisSize: MainAxisSize.max,
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        SizedBox(
-                                          height: 36,
+                                        Flexible(
                                           child: Text(
                                             productName,
                                             style: AppTextStyles.bodySmall,
@@ -1730,9 +1747,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                           style: AppTextStyles.bodyMedium.copyWith(
                                             fontWeight: FontWeight.w600,
                                           ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                         const SizedBox(height: 2),
                                         Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
                                             const Icon(
                                               Icons.star,
@@ -1740,9 +1760,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                               size: 14,
                                             ),
                                             const SizedBox(width: 4),
-                                            Text(
-                                              (product['rating'] as num? ?? 0.0).toStringAsFixed(1),
-                                              style: AppTextStyles.caption,
+                                            Flexible(
+                                              child: Text(
+                                                (product['rating'] as num? ?? 0.0).toStringAsFixed(1),
+                                                style: AppTextStyles.caption,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
                                           ],
                                         ),

@@ -7,6 +7,8 @@ import '../../widgets/custom_dropdown.dart';
 import '../../controller/add_product/cubit.dart';
 import '../../controller/products/cubit.dart';
 import '../../controller/products/state.dart';
+import '../../utils/responsive_utils.dart';
+import '../../utils/debouncer.dart';
 import 'product_detail_screen.dart';
 
 class CategorySearchScreen extends StatefulWidget {
@@ -28,6 +30,7 @@ class CategorySearchScreen extends StatefulWidget {
 class _CategorySearchScreenState extends State<CategorySearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final Debouncer _debouncer = Debouncer(delay: const Duration(milliseconds: 300));
   
   // Filter states
   String? _selectedCategory;
@@ -209,6 +212,7 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
 
   @override
   void dispose() {
+    _debouncer.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -514,9 +518,12 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
           ),
         ),
         onChanged: (value) {
-          _performSearch(value);
+          _debouncer.call(() {
+            _performSearch(value);
+          });
         },
         onSubmitted: (value) {
+          _debouncer.dispose();
           _performSearch(value);
         },
       ),
@@ -807,12 +814,12 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.65,
+                padding: ResponsiveUtils.getScreenPadding(context),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: ResponsiveUtils.getProductGridCrossAxisCount(context),
+                  crossAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                  mainAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                  childAspectRatio: ResponsiveUtils.getProductCardAspectRatio(context),
                 ),
                 itemCount: filteredProducts.length,
                 itemBuilder: (context, index) {

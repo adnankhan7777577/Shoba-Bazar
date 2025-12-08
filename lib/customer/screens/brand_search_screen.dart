@@ -3,6 +3,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../utils/responsive_utils.dart';
+import '../../utils/debouncer.dart';
 import 'product_detail_screen.dart';
 
 class BrandSearchScreen extends StatefulWidget {
@@ -24,6 +26,7 @@ class BrandSearchScreen extends StatefulWidget {
 class _BrandSearchScreenState extends State<BrandSearchScreen> {
   final SupabaseClient _supabase = Supabase.instance.client;
   final TextEditingController _searchController = TextEditingController();
+  final Debouncer _debouncer = Debouncer(delay: const Duration(milliseconds: 300));
   
   List<Map<String, dynamic>> _products = [];
   bool _isLoading = true;
@@ -37,6 +40,7 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
 
   @override
   void dispose() {
+    _debouncer.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -153,8 +157,12 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
   }
 
   void _performSearch(String query) {
-    setState(() {
-      _searchQuery = query.toLowerCase();
+    _debouncer.call(() {
+      if (mounted) {
+        setState(() {
+          _searchQuery = query.toLowerCase();
+        });
+      }
     });
   }
 
@@ -220,7 +228,13 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
                     size: 20,
                   ),
                 ),
-                onChanged: _performSearch,
+                onChanged: (value) {
+                  _performSearch(value);
+                },
+                onSubmitted: (value) {
+                  _debouncer.dispose();
+                  _performSearch(value);
+                },
               ),
             ),
           ),
@@ -255,12 +269,12 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
                         ),
                       )
                     : GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 0.75,
+                        padding: ResponsiveUtils.getScreenPadding(context),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: ResponsiveUtils.getProductGridCrossAxisCount(context),
+                          crossAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                          mainAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                          childAspectRatio: ResponsiveUtils.getProductCardAspectRatio(context),
                         ),
                         itemCount: _filteredProducts.length,
                         itemBuilder: (context, index) {
@@ -310,7 +324,7 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
           children: [
             // Product Image
             Container(
-              height: 120,
+              height: ResponsiveUtils.getProductCardImageHeight(context),
               decoration: BoxDecoration(
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),

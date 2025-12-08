@@ -38,6 +38,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int? _userRating;
   String? _userComment;
   bool _isLoading = true;
+  bool _isSeller = false; // Track if current user is a seller
 
   // Product data from database
   Map<String, dynamic>? _productData;
@@ -47,6 +48,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _checkIfUserIsSeller();
     _loadProductDetails();
     // Check favorite status directly from database in initState
     _checkFavoriteStatusDirectly();
@@ -56,6 +58,41 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final productId = widget.product['id'] as String?;
     if (productId != null) {
       context.read<ProductReviewsCubit>().fetchProductReviewsWithUserCheck(productId);
+    }
+  }
+
+  Future<void> _checkIfUserIsSeller() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        setState(() {
+          _isSeller = false;
+        });
+        return;
+      }
+
+      // Get user role from database
+      final userResponse = await _supabase
+          .from('users')
+          .select('role')
+          .eq('auth_id', user.id)
+          .maybeSingle();
+
+      if (userResponse != null) {
+        final userRole = userResponse['role'] as String?;
+        if (mounted) {
+          setState(() {
+            _isSeller = userRole == 'seller';
+          });
+        }
+      }
+    } catch (e) {
+      print('Error checking user role: $e');
+      if (mounted) {
+        setState(() {
+          _isSeller = false;
+        });
+      }
     }
   }
 
@@ -609,45 +646,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
               ),
               
-              // Action Icons
-              Row(
-                children: [
-                   const SizedBox(width: 12),
-                  _buildActionIcon(
-                    icon: Icons.star,
-                    color: AppColors.warning,
-                    onTap: () {
-                      _showRateReviewDialog();
-                    },
-                    isActive: _hasRated,
-                  ),
-                  const SizedBox(width: 12),
-                  _buildActionIcon(
-                    icon: Icons.report,
-                    color: AppColors.error,
-                    onTap: () {
-                      _showReportDialog();
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  _buildActionIcon(
-                    icon: Icons.favorite,
-                    color: AppColors.error,
-                    onTap: () {
-                      final productId = widget.product['id'] as String?;
-                      if (productId != null) {
-                        // Pass current favorite status for immediate UI update
-                        context.read<ProductFavoriteCubit>().toggleFavorite(
-                          productId,
-                          currentFavoriteStatus: _isFavorited,
-                        );
-                      }
-                    },
-                    isActive: _isFavorited,
-                  ),
-                
-                ],
-              ),
+              // Action Icons (hide for sellers)
+              if (!_isSeller)
+                Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    _buildActionIcon(
+                      icon: Icons.star,
+                      color: AppColors.warning,
+                      onTap: () {
+                        _showRateReviewDialog();
+                      },
+                      isActive: _hasRated,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildActionIcon(
+                      icon: Icons.report,
+                      color: AppColors.error,
+                      onTap: () {
+                        _showReportDialog();
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    _buildActionIcon(
+                      icon: Icons.favorite,
+                      color: AppColors.error,
+                      onTap: () {
+                        final productId = widget.product['id'] as String?;
+                        if (productId != null) {
+                          // Pass current favorite status for immediate UI update
+                          context.read<ProductFavoriteCubit>().toggleFavorite(
+                            productId,
+                            currentFavoriteStatus: _isFavorited,
+                          );
+                        }
+                      },
+                      isActive: _isFavorited,
+                    ),
+                  ],
+                ),
             ],
           ),
           const SizedBox(height: 20),

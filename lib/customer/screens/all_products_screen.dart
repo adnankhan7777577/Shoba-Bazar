@@ -5,6 +5,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../controller/products/cubit.dart';
 import '../../controller/products/state.dart';
+import '../../utils/responsive_utils.dart';
 import 'product_detail_screen.dart';
 
 class AllProductsScreen extends StatefulWidget {
@@ -79,7 +80,10 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
         children: [
           // Search Bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveUtils.getHorizontalPadding(context),
+              vertical: 8,
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -175,12 +179,12 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                   }
                   
                   return GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.75,
+                    padding: ResponsiveUtils.getScreenPadding(context),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: ResponsiveUtils.getProductGridCrossAxisCount(context),
+                      crossAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                      mainAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                      childAspectRatio: ResponsiveUtils.getProductCardAspectRatio(context),
                     ),
                     itemCount: filteredProducts.length,
                     itemBuilder: (context, index) {
@@ -235,7 +239,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
           children: [
             // Product Image
             Container(
-              height: 120,
+              height: ResponsiveUtils.getProductCardImageHeight(context),
               decoration: BoxDecoration(
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),

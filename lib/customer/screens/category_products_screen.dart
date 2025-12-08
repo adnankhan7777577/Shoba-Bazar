@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../utils/responsive_utils.dart';
 import 'product_detail_screen.dart';
 
 class CategoryProductsScreen extends StatefulWidget {
@@ -197,7 +198,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         children: [
           // Search Bar
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: ResponsiveUtils.getScreenPadding(context),
             child: Container(
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -266,12 +267,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                         ),
                       )
                     : GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 0.75,
+                        padding: ResponsiveUtils.getScreenPadding(context),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: ResponsiveUtils.getProductGridCrossAxisCount(context),
+                          crossAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                          mainAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                          childAspectRatio: ResponsiveUtils.getProductCardAspectRatio(context),
                         ),
                         itemCount: _filteredProducts.length,
                         itemBuilder: (context, index) {
@@ -321,7 +322,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           children: [
             // Product Image
             Container(
-              height: 120,
+              height: ResponsiveUtils.getProductCardImageHeight(context),
               decoration: BoxDecoration(
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),

@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../controller/add_product/cubit.dart';
+import '../../utils/responsive_utils.dart';
 import 'category_search_screen.dart';
 
 class AllCategoriesScreen extends StatefulWidget {
@@ -129,24 +130,24 @@ class _AllCategoriesScreenState extends State<AllCategoriesScreen> {
                           ),
                         )
                       : SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          padding: ResponsiveUtils.getScreenPadding(context),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const SizedBox(height: 16),
+                              SizedBox(height: ResponsiveUtils.getSpacing(context)),
                               Text(
                                 'All Categories',
                                 style: AppTextStyles.heading3,
                               ),
-                              const SizedBox(height: 16),
+                              SizedBox(height: ResponsiveUtils.getSpacing(context)),
                               GridView.builder(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 4,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: 1,
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: ResponsiveUtils.getCategoryGridCrossAxisCount(context),
+                                  crossAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                                  mainAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+                                  childAspectRatio: ResponsiveUtils.getCategoryCardAspectRatio(context),
                                 ),
                                 itemCount: _categories.length,
                                 itemBuilder: (context, index) {

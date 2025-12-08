@@ -45,24 +45,90 @@ class ProductsCubit extends Cubit<ProductsState> {
         return;
       }
 
-      final searchQuery = query.trim();
+      final searchQuery = query.trim().toLowerCase();
+      final searchWords = searchQuery.split(' ').where((w) => w.isNotEmpty).toList();
       
-      // Search products by title (name), brand, and category
-      // First, get matching category IDs and brand IDs
-      final categoriesResponse = await _supabase
-          .from('product_categories')
-          .select('id')
-          .ilike('name', '%$searchQuery%');
+      // Collect all matching IDs for brands, categories, and models
+      Set<String> brandIds = {};
+      Set<String> categoryIds = {};
+      Set<String> modelIds = {};
       
-      final brandsResponse = await _supabase
+      // Search for each word in the query to find matches
+      for (final word in searchWords) {
+        // Search brands
+        final brandsResponse = await _supabase
+            .from('product_brands')
+            .select('id')
+            .ilike('name', '%$word%')
+            .limit(10);
+        brandIds.addAll(brandsResponse.map((brand) => brand['id'] as String));
+        
+        // Search categories
+        final categoriesResponse = await _supabase
+            .from('product_categories')
+            .select('id')
+            .ilike('name', '%$word%')
+            .limit(10);
+        categoryIds.addAll(categoriesResponse.map((cat) => cat['id'] as String));
+        
+        // Search models
+        final modelsResponse = await _supabase
+            .from('product_models')
+            .select('id')
+            .ilike('name', '%$word%')
+            .limit(10);
+        modelIds.addAll(modelsResponse.map((model) => model['id'] as String));
+      }
+      
+      // Also search for the full query string
+      final fullBrandsResponse = await _supabase
           .from('product_brands')
           .select('id')
-          .ilike('name', '%$searchQuery%');
+          .ilike('name', '%$searchQuery%')
+          .limit(10);
+      brandIds.addAll(fullBrandsResponse.map((brand) => brand['id'] as String));
       
-      final categoryIds = categoriesResponse.map((cat) => cat['id'] as String).toList();
-      final brandIds = brandsResponse.map((brand) => brand['id'] as String).toList();
+      final fullCategoriesResponse = await _supabase
+          .from('product_categories')
+          .select('id')
+          .ilike('name', '%$searchQuery%')
+          .limit(10);
+      categoryIds.addAll(fullCategoriesResponse.map((cat) => cat['id'] as String));
       
-      // Build query to search by name, category_id, or brand_id
+      final fullModelsResponse = await _supabase
+          .from('product_models')
+          .select('id')
+          .ilike('name', '%$searchQuery%')
+          .limit(10);
+      modelIds.addAll(fullModelsResponse.map((model) => model['id'] as String));
+      
+      // Build OR conditions for comprehensive search
+      List<String> orConditions = [];
+      
+      // Always search in product name (both full query and individual words)
+      orConditions.add('name.ilike.%$searchQuery%');
+      for (final word in searchWords) {
+        if (word.length >= 2) { // Only search words with 2+ characters
+          orConditions.add('name.ilike.%$word%');
+        }
+      }
+      
+      // If brand matches found, include them
+      if (brandIds.isNotEmpty) {
+        orConditions.add('brand_id.in.(${brandIds.join(',')})');
+      }
+      
+      // If category matches found, include them
+      if (categoryIds.isNotEmpty) {
+        orConditions.add('category_id.in.(${categoryIds.join(',')})');
+      }
+      
+      // If model matches found, include them
+      if (modelIds.isNotEmpty) {
+        orConditions.add('model_id.in.(${modelIds.join(',')})');
+      }
+      
+      // Build the query with all OR conditions
       var queryBuilder = _supabase
           .from('products')
           .select('''
@@ -71,6 +137,9 @@ class ProductsCubit extends Cubit<ProductsState> {
             price,
             description,
             seller_id,
+            category_id,
+            brand_id,
+            model_id,
             price_types(name),
             product_categories(name),
             product_brands(name),
@@ -78,24 +147,12 @@ class ProductsCubit extends Cubit<ProductsState> {
             product_models(name),
             product_years(year),
             sellers(user_id, approval_status, users(is_active, role))
-          ''');
-      
-      // Use OR condition to search across name, category_id, and brand_id
-      List<String> orConditions = ['name.ilike.%$searchQuery%'];
-      
-      if (categoryIds.isNotEmpty) {
-        orConditions.add('category_id.in.(${categoryIds.join(',')})');
-      }
-      
-      if (brandIds.isNotEmpty) {
-        orConditions.add('brand_id.in.(${brandIds.join(',')})');
-      }
-      
-      final productsResponse = await queryBuilder
+          ''')
           .or(orConditions.join(','))
           .order('created_at', ascending: false)
           .limit(limit);
 
+      final productsResponse = await queryBuilder;
       await _processProducts(productsResponse);
     } catch (e) {
       emit(ProductsError('Failed to search products: ${e.toString()}'));
@@ -265,8 +322,9 @@ class ProductsCubit extends Cubit<ProductsState> {
   }
 
   Future<void> _processProducts(List<dynamic> productsResponse) async {
-    // Fetch images and ratings for each product, filter by active sellers
-    final List<Map<String, dynamic>> productsWithDetails = [];
+    // First, filter products by active sellers
+    final List<Map<String, dynamic>> activeProducts = [];
+    final List<String> activeProductIds = [];
     
     for (var product in productsResponse) {
       // Filter: only include products from approved and active sellers
@@ -279,44 +337,86 @@ class ProductsCubit extends Cubit<ProductsState> {
       final isAdminProduct = userRole == 'admin';
       
       // Skip products from blocked or rejected sellers (unless it's an admin product)
-      if (!isAdminProduct && (!isActive || approvalStatus != 'approved')) {
-        continue;
+      if (isAdminProduct || (isActive && approvalStatus == 'approved')) {
+        activeProducts.add(product);
+        activeProductIds.add(product['id'] as String);
       }
+    }
+
+    if (activeProductIds.isEmpty) {
+      emit(ProductsLoaded(products: []));
+      return;
+    }
+
+    // Batch fetch all images and ratings in parallel for better performance
+    final Map<String, String?> productImages = {};
+    final Map<String, double> productRatings = {};
+    
+    // Create a set for faster lookup
+    final activeProductIdsSet = activeProductIds.toSet();
+    
+    // Fetch images and ratings in parallel
+    final results = await Future.wait([
+      // Fetch all images
+      _supabase
+          .from('product_images')
+          .select('product_id, image_url, display_order')
+          .inFilter('product_id', activeProductIds)
+          .order('display_order', ascending: true)
+          .then((response) {
+            // Filter and group by product_id, take first image for each
+            final Map<String, String?> images = {};
+            for (var img in response) {
+              final pid = img['product_id'] as String;
+              if (activeProductIdsSet.contains(pid) && !images.containsKey(pid)) {
+                images[pid] = img['image_url'] as String?;
+              }
+            }
+            return images;
+          }).catchError((e) {
+            print('Error fetching images: $e');
+            return <String, String?>{};
+          }),
+      
+      // Fetch all ratings
+      _supabase
+          .from('product_ratings')
+          .select('product_id, rating')
+          .inFilter('product_id', activeProductIds)
+          .then((response) {
+            // Group by product_id and calculate average
+            final Map<String, List<double>> ratingsByProduct = {};
+            for (var rating in response) {
+              final pid = rating['product_id'] as String;
+              final ratingValue = ((rating['rating'] as num?) ?? 0.0).toDouble();
+              if (activeProductIdsSet.contains(pid)) {
+                ratingsByProduct.putIfAbsent(pid, () => []).add(ratingValue);
+              }
+            }
+            
+            // Calculate averages
+            final Map<String, double> averages = {};
+            ratingsByProduct.forEach((pid, ratings) {
+              if (ratings.isNotEmpty) {
+                averages[pid] = ratings.reduce((a, b) => a + b) / ratings.length;
+              }
+            });
+            return averages;
+          }).catchError((e) {
+            print('Error fetching ratings: $e');
+            return <String, double>{};
+          }),
+    ]);
+
+    productImages.addAll(results[0] as Map<String, String?>);
+    productRatings.addAll(results[1] as Map<String, double>);
+
+    // Build final products list
+    final List<Map<String, dynamic>> productsWithDetails = [];
+    
+    for (var product in activeProducts) {
       final productId = product['id'] as String;
       
-      // Fetch first image
-      final imagesResponse = await _supabase
-          .from('product_images')
-          .select('image_url')
-          .eq('product_id', productId)
-          .order('display_order', ascending: true)
-          .limit(1);
-
-      String? firstImage;
-      if (imagesResponse.isNotEmpty) {
-        firstImage = imagesResponse[0]['image_url'] as String?;
-      }
-
-      // Fetch average rating from product_ratings
-      double averageRating = 0.0;
-      try {
-        final ratingsResponse = await _supabase
-            .from('product_ratings')
-            .select('rating')
-            .eq('product_id', productId);
-        
-        if (ratingsResponse.isNotEmpty) {
-          final ratings = ratingsResponse
-              .map((rating) => (rating['rating'] as num?) ?? 0.0)
-              .toList();
-          if (ratings.isNotEmpty) {
-            averageRating = ratings.reduce((a, b) => a + b) / ratings.length;
-          }
-        }
-      } catch (e) {
-        // Rating calculation failed, use default 0.0
-      }
-
       // Format price
       final price = product['price'] as num? ?? 0.0;
       final priceType = product['price_types'] as Map<String, dynamic>?;
@@ -332,8 +432,8 @@ class ProductsCubit extends Cubit<ProductsState> {
         'id': productId,
         'name': product['name'] as String? ?? '',
         'price': formattedPrice,
-        'image': firstImage,
-        'rating': averageRating,
+        'image': productImages[productId],
+        'rating': productRatings[productId] ?? 0.0,
         'product': product, // Store full product data for navigation
       });
     }

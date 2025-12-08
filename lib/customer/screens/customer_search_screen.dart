@@ -5,6 +5,8 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../controller/products/cubit.dart';
 import '../../controller/products/state.dart';
+import '../../utils/responsive_utils.dart';
+import '../../utils/debouncer.dart';
 import 'product_detail_screen.dart';
 
 class CustomerSearchScreen extends StatefulWidget {
@@ -22,6 +24,7 @@ class CustomerSearchScreen extends StatefulWidget {
 class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final Debouncer _debouncer = Debouncer(delay: const Duration(milliseconds: 500));
 
   @override
   void initState() {
@@ -41,6 +44,7 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
 
   @override
   void dispose() {
+    _debouncer.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -196,17 +200,20 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
           ),
         ),
         onChanged: (value) {
-          if (value.trim().isEmpty) {
-            context.read<ProductsCubit>().fetchAllProducts();
-          } else {
-            context.read<ProductsCubit>().searchProducts(value);
-          }
+          _debouncer.call(() {
+            if (value.trim().isEmpty) {
+              context.read<ProductsCubit>().fetchAllProducts();
+            } else {
+              context.read<ProductsCubit>().searchProducts(value.trim());
+            }
+          });
         },
         onSubmitted: (value) {
+          _debouncer.dispose();
           if (value.trim().isEmpty) {
             context.read<ProductsCubit>().fetchAllProducts();
           } else {
-            context.read<ProductsCubit>().searchProducts(value);
+            context.read<ProductsCubit>().searchProducts(value.trim());
           }
         },
       ),
@@ -215,12 +222,12 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
 
   Widget _buildSearchResults(List<Map<String, dynamic>> products) {
     return GridView.builder(
-      padding: const EdgeInsets.all(20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.75,
+      padding: ResponsiveUtils.getScreenPadding(context),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: ResponsiveUtils.getProductGridCrossAxisCount(context),
+        crossAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+        mainAxisSpacing: ResponsiveUtils.getGridSpacing(context),
+        childAspectRatio: ResponsiveUtils.getProductCardAspectRatio(context),
       ),
       itemCount: products.length,
       itemBuilder: (context, index) {
