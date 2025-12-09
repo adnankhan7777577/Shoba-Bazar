@@ -1394,6 +1394,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               MaterialPageRoute(
                                 builder: (context) => ProductDetailScreen(
                                   product: productData,
+                                  hideActionIcons: widget.showBackButton,
                                 ),
                               ),
                             );
@@ -1418,7 +1419,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               children: [
                                 // Product Image
                                 Container(
-                                  height: 95,
+                                  height: 92,
                                   decoration: BoxDecoration(
                                     borderRadius: const BorderRadius.only(
                                       topLeft: Radius.circular(12),
@@ -1468,56 +1469,49 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 ),
                                 
                                 // Product Details
-                                Expanded(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: ResponsiveUtils.isMobile(context) ? 6.0 : 8.0,
-                                      vertical: ResponsiveUtils.isMobile(context) ? 4.0 : 6.0,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.max,
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            productName,
-                                            style: AppTextStyles.bodySmall,
-                                            maxLines: 2,
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: ResponsiveUtils.isMobile(context) ? 6.0 : 8.0,
+                                    vertical: ResponsiveUtils.isMobile(context) ? 3.0 : 5.0,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        productName,
+                                        style: AppTextStyles.bodySmall,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 1.5),
+                                      Text(
+                                        productPrice,
+                                        style: AppTextStyles.bodyMedium.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 1.5),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.star,
+                                            color: AppColors.warning,
+                                            size: 12,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            (deal['rating'] as num? ?? 0.0).toStringAsFixed(1),
+                                            style: AppTextStyles.caption,
+                                            maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          productPrice,
-                                          style: AppTextStyles.bodyMedium.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.star,
-                                              color: AppColors.warning,
-                                              size: 12,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Flexible(
-                                              child: Text(
-                                                (deal['rating'] as num? ?? 0.0).toStringAsFixed(1),
-                                                style: AppTextStyles.caption,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -1648,6 +1642,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               MaterialPageRoute(
                                 builder: (context) => ProductDetailScreen(
                                   product: productData,
+                                  hideActionIcons: widget.showBackButton,
                                 ),
                               ),
                             );
@@ -1672,7 +1667,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               children: [
                                 // Product Image
                                 Container(
-                                  height: ResponsiveUtils.isMobile(context) ? 95.0 : ResponsiveUtils.isTablet(context) ? 110.0 : 125.0,
+                                  height: ResponsiveUtils.isMobile(context) ? 92.0 : ResponsiveUtils.isTablet(context) ? 110.0 : 125.0,
                                   decoration: BoxDecoration(
                                     borderRadius: const BorderRadius.only(
                                       topLeft: Radius.circular(12),
@@ -1722,56 +1717,49 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 ),
                                 
                                 // Product Details
-                                Expanded(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: ResponsiveUtils.isMobile(context) ? 6.0 : 8.0,
-                                      vertical: ResponsiveUtils.isMobile(context) ? 4.0 : 6.0,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.max,
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            productName,
-                                            style: AppTextStyles.bodySmall,
-                                            maxLines: 2,
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: ResponsiveUtils.isMobile(context) ? 6.0 : 8.0,
+                                    vertical: ResponsiveUtils.isMobile(context) ? 3.0 : 5.0,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        productName,
+                                        style: AppTextStyles.bodySmall,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 1.5),
+                                      Text(
+                                        productPrice,
+                                        style: AppTextStyles.bodyMedium.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.star,
+                                            color: AppColors.warning,
+                                            size: 14,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            (product['rating'] as num? ?? 0.0).toStringAsFixed(1),
+                                            style: AppTextStyles.caption,
+                                            maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          productPrice,
-                                          style: AppTextStyles.bodyMedium.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.star,
-                                              color: AppColors.warning,
-                                              size: 14,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Flexible(
-                                              child: Text(
-                                                (product['rating'] as num? ?? 0.0).toStringAsFixed(1),
-                                                style: AppTextStyles.caption,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],

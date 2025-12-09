@@ -93,24 +93,37 @@ class AdminSellerProductsService {
         return [];
       }
 
-      // Batch fetch all images for all products
-      final allImagesResponse = await _supabase
-          .from('product_images')
-          .select('product_id, image_url, display_order, created_at')
-          .order('created_at');
+      // Batch fetch images and ratings in parallel for better performance
+      final results = await Future.wait([
+        // Batch fetch all images for our products only using inFilter
+        _supabase
+            .from('product_images')
+            .select('product_id, image_url, display_order, created_at')
+            .inFilter('product_id', productIds)
+            .order('display_order', ascending: true)
+            .order('created_at', ascending: true),
+        
+        // Batch fetch all ratings for our products only using inFilter
+        _supabase
+            .from('product_ratings')
+            .select('product_id, rating')
+            .inFilter('product_id', productIds),
+      ]);
 
-      // Filter images to only those belonging to our products and group by product_id
+      final allImagesResponse = results[0] as List;
+      final allRatingsResponse = results[1] as List;
+
+      // Group images by product_id and get first image for each
       final Map<String, String?> firstImagesMap = {};
       final Map<String, List<Map<String, dynamic>>> imagesByProduct = {};
       
       for (var image in allImagesResponse) {
-        final productId = image['product_id'] as String;
-        if (productIds.contains(productId)) {
-          if (!imagesByProduct.containsKey(productId)) {
-            imagesByProduct[productId] = [];
-          }
-          imagesByProduct[productId]!.add(image);
+        final imageMap = image as Map<String, dynamic>;
+        final productId = imageMap['product_id'] as String;
+        if (!imagesByProduct.containsKey(productId)) {
+          imagesByProduct[productId] = [];
         }
+        imagesByProduct[productId]!.add(imageMap);
       }
       
       // Get first image for each product (prioritize display_order, then created_at)
@@ -131,22 +144,16 @@ class AdminSellerProductsService {
         }
       }
 
-      // Batch fetch all ratings for all products
-      final allRatingsResponse = await _supabase
-          .from('product_ratings')
-          .select('product_id, rating');
-
-      // Filter ratings to only those belonging to our products and calculate averages
+      // Group ratings by product_id and calculate averages
       final Map<String, List<double>> ratingsByProduct = {};
       for (var rating in allRatingsResponse) {
-        final productId = rating['product_id'] as String;
-        if (productIds.contains(productId)) {
-          final ratingValue = (rating['rating'] as num?)?.toDouble() ?? 0.0;
-          if (!ratingsByProduct.containsKey(productId)) {
-            ratingsByProduct[productId] = [];
-          }
-          ratingsByProduct[productId]!.add(ratingValue);
+        final ratingMap = rating as Map<String, dynamic>;
+        final productId = ratingMap['product_id'] as String;
+        final ratingValue = (ratingMap['rating'] as num?)?.toDouble() ?? 0.0;
+        if (!ratingsByProduct.containsKey(productId)) {
+          ratingsByProduct[productId] = [];
         }
+        ratingsByProduct[productId]!.add(ratingValue);
       }
 
       // Build products with details

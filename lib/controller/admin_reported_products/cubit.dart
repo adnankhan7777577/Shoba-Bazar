@@ -52,52 +52,102 @@ class AdminReportedProductsCubit extends Cubit<AdminReportedProductsState> {
           ''')
           .order('created_at', ascending: false);
 
+      // Extract all product IDs for batch queries
+      final List<String> productIds = [];
+      final List<Map<String, dynamic>> validReports = [];
+      
+      for (var report in reportsResponse) {
+        final product = report['products'] as Map<String, dynamic>?;
+        if (product != null) {
+          final productId = product['id'] as String?;
+          if (productId != null) {
+            productIds.add(productId);
+            validReports.add(report);
+          }
+        }
+      }
+
+      // Batch fetch all images and ratings in parallel for all products at once
+      final Map<String, String?> productImages = {};
+      final Map<String, double?> productRatings = {};
+      
+      if (productIds.isNotEmpty) {
+        final results = await Future.wait([
+          // Batch fetch all images for all products
+          _supabase
+              .from('product_images')
+              .select('product_id, image_url, display_order')
+              .inFilter('product_id', productIds)
+              .order('display_order', ascending: true),
+          
+          // Batch fetch all ratings for all products
+          _supabase
+              .from('product_ratings')
+              .select('product_id, rating')
+              .inFilter('product_id', productIds),
+        ]);
+
+        final allImagesResponse = results[0] as List;
+        final allRatingsResponse = results[1] as List;
+
+        // Group images by product_id and get first image
+        final Map<String, List<Map<String, dynamic>>> imagesByProduct = {};
+        for (var image in allImagesResponse) {
+          final imageMap = image as Map<String, dynamic>;
+          final productId = imageMap['product_id'] as String;
+          if (!imagesByProduct.containsKey(productId)) {
+            imagesByProduct[productId] = [];
+          }
+          imagesByProduct[productId]!.add(imageMap);
+        }
+        
+        // Get first image for each product
+        for (var entry in imagesByProduct.entries) {
+          final sortedImages = entry.value
+            ..sort((a, b) {
+              final aOrder = a['display_order'] as int? ?? 999;
+              final bOrder = b['display_order'] as int? ?? 999;
+              return aOrder.compareTo(bOrder);
+            });
+          if (sortedImages.isNotEmpty) {
+            productImages[entry.key] = sortedImages[0]['image_url'] as String?;
+          }
+        }
+
+        // Group ratings by product_id and calculate averages
+        final Map<String, List<double>> ratingsByProduct = {};
+        for (var rating in allRatingsResponse) {
+          final ratingMap = rating as Map<String, dynamic>;
+          final productId = ratingMap['product_id'] as String;
+          final ratingValue = (ratingMap['rating'] as num?)?.toDouble() ?? 0.0;
+          if (!ratingsByProduct.containsKey(productId)) {
+            ratingsByProduct[productId] = [];
+          }
+          ratingsByProduct[productId]!.add(ratingValue);
+        }
+        
+        // Calculate average ratings
+        for (var entry in ratingsByProduct.entries) {
+          if (entry.value.isNotEmpty) {
+            productRatings[entry.key] = entry.value.reduce((a, b) => a + b) / entry.value.length;
+          }
+        }
+      }
+
       final List<Map<String, dynamic>> formattedProducts = [];
 
-      for (var report in reportsResponse) {
+      for (var report in validReports) {
         final product = report['products'] as Map<String, dynamic>?;
         final customer = report['customers'] as Map<String, dynamic>?;
         final customerUser = customer?['users'] as Map<String, dynamic>?;
         final seller = product?['sellers'] as Map<String, dynamic>?;
         final sellerUser = seller?['users'] as Map<String, dynamic>?;
 
-        if (product == null) continue;
+        final productId = product!['id'] as String;
 
-        final productId = product['id'] as String?;
-        if (productId == null) continue;
-
-        // Fetch product images
-        final imagesResponse = await _supabase
-            .from('product_images')
-            .select('image_url')
-            .eq('product_id', productId)
-            .order('display_order', ascending: true)
-            .limit(1);
-
-        String? firstImage;
-        if (imagesResponse.isNotEmpty) {
-          firstImage = imagesResponse[0]['image_url'] as String?;
-        }
-
-        // Fetch average rating
-        double? averageRating;
-        try {
-          final ratingsResponse = await _supabase
-              .from('product_ratings')
-              .select('rating')
-              .eq('product_id', productId);
-
-          if (ratingsResponse.isNotEmpty) {
-            final ratings = ratingsResponse
-                .map((rating) => (rating['rating'] as num?) ?? 0.0)
-                .toList();
-            if (ratings.isNotEmpty) {
-              averageRating = ratings.reduce((a, b) => a + b) / ratings.length;
-            }
-          }
-        } catch (e) {
-          // Rating calculation failed, rating will be null
-        }
+        // Get pre-fetched image and rating
+        final firstImage = productImages[productId];
+        final averageRating = productRatings[productId];
 
         // Format price
         final price = product['price'] as num? ?? 0.0;

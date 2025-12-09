@@ -46,6 +46,8 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
   }
 
   Future<void> _loadProducts() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
     });
@@ -71,12 +73,10 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
           .eq('brand_id', widget.brandId)
           .order('created_at', ascending: false);
 
-      // Fetch images and ratings for each product, filter by active sellers
-      final List<Map<String, dynamic>> productsWithDetails = [];
-      
-      for (var product in productsResponse) {
-        // Filter: only include products from approved and active sellers
-        // Admin products should always be shown regardless of approval status
+      if (!mounted) return;
+
+      // Filter products by seller status first
+      final validProducts = productsResponse.where((product) {
         final sellerData = product['sellers'] as Map<String, dynamic>?;
         final userData = sellerData?['users'] as Map<String, dynamic>?;
         final isActive = userData?['is_active'] as bool? ?? false;
@@ -84,44 +84,81 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
         final userRole = userData?['role'] as String?;
         final isAdminProduct = userRole == 'admin';
         
-        // Skip products from blocked or rejected sellers (unless it's an admin product)
-        if (!isAdminProduct && (!isActive || approvalStatus != 'approved')) {
-          continue;
+        return isAdminProduct || (isActive && approvalStatus == 'approved');
+      }).toList();
+
+      if (validProducts.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _products = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Extract all product IDs for batch queries
+      final productIds = validProducts.map((p) => p['id'] as String).toList();
+
+      // Batch fetch all images at once
+      final allImagesResponse = await _supabase
+          .from('product_images')
+          .select('product_id, image_url, display_order')
+          .inFilter('product_id', productIds)
+          .order('display_order', ascending: true);
+
+      if (!mounted) return;
+
+      // Batch fetch all reviews at once
+      Map<String, double> ratingsMap = {};
+      try {
+        final allReviewsResponse = await _supabase
+            .from('product_reviews')
+            .select('product_id, rating')
+            .inFilter('product_id', productIds);
+        
+        if (!mounted) return;
+
+        // Calculate average ratings for each product
+        final reviewsByProduct = <String, List<num>>{};
+        for (var review in allReviewsResponse) {
+          final productId = review['product_id'] as String;
+          final rating = (review['rating'] as num?) ?? 0.0;
+          reviewsByProduct.putIfAbsent(productId, () => []).add(rating);
         }
+
+        ratingsMap = reviewsByProduct.map((productId, ratings) {
+          final avg = ratings.reduce((a, b) => a + b) / ratings.length;
+          return MapEntry(productId, avg);
+        });
+      } catch (e) {
+        // Reviews table might not exist, continue with empty ratings
+        print('Error fetching reviews: $e');
+      }
+
+      if (!mounted) return;
+
+      // Group images by product_id
+      final imagesByProduct = <String, List<String>>{};
+      for (var image in allImagesResponse) {
+        final productId = image['product_id'] as String;
+        final imageUrl = image['image_url'] as String?;
+        if (imageUrl != null) {
+          imagesByProduct.putIfAbsent(productId, () => []).add(imageUrl);
+        }
+      }
+
+      // Build product list with all data
+      final List<Map<String, dynamic>> productsWithDetails = [];
+      
+      for (var product in validProducts) {
         final productId = product['id'] as String;
         
-        // Fetch first image
-        final imagesResponse = await _supabase
-            .from('product_images')
-            .select('image_url')
-            .eq('product_id', productId)
-            .order('display_order', ascending: true)
-            .limit(1);
+        // Get first image for this product
+        final images = imagesByProduct[productId];
+        final firstImage = images?.isNotEmpty == true ? images!.first : null;
 
-        String? firstImage;
-        if (imagesResponse.isNotEmpty) {
-          firstImage = imagesResponse[0]['image_url'] as String?;
-        }
-
-        // Fetch average rating
-        double averageRating = 0.0;
-        try {
-          final reviewsResponse = await _supabase
-              .from('product_reviews')
-              .select('rating')
-              .eq('product_id', productId);
-          
-          if (reviewsResponse.isNotEmpty) {
-            final ratings = reviewsResponse
-                .map((review) => (review['rating'] as num?) ?? 0.0)
-                .toList();
-            if (ratings.isNotEmpty) {
-              averageRating = ratings.reduce((a, b) => a + b) / ratings.length;
-            }
-          }
-        } catch (e) {
-          // Use default 0.0 if reviews table doesn't exist
-        }
+        // Get rating for this product
+        final averageRating = ratingsMap[productId] ?? 0.0;
 
         // Format price
         final price = product['price'] as num? ?? 0.0;
@@ -144,12 +181,16 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
         });
       }
       
+      if (!mounted) return;
+      
       setState(() {
         _products = productsWithDetails;
         _isLoading = false;
       });
     } catch (e) {
       print('Error loading products: $e');
+      if (!mounted) return;
+      
       setState(() {
         _isLoading = false;
       });
@@ -374,20 +415,26 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      height: 36,
-                      child: Text(
-                        productName,
-                        style: AppTextStyles.bodySmall,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    Flexible(
+                      child: SizedBox(
+                        height: 36,
+                        child: Text(
+                          productName,
+                          style: AppTextStyles.bodySmall,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      productPrice,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: Text(
+                        productPrice,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -399,9 +446,13 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
                           size: 16,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          productRating.toStringAsFixed(1),
-                          style: AppTextStyles.caption,
+                        Flexible(
+                          child: Text(
+                            productRating.toStringAsFixed(1),
+                            style: AppTextStyles.caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -415,4 +466,3 @@ class _BrandSearchScreenState extends State<BrandSearchScreen> {
     );
   }
 }
-

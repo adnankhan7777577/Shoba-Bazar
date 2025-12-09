@@ -20,10 +20,12 @@ import '../../controller/product_reviews/state.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, dynamic> product;
+  final bool hideActionIcons;
 
   const ProductDetailScreen({
     super.key,
     required this.product,
+    this.hideActionIcons = false,
   });
 
   @override
@@ -39,6 +41,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String? _userComment;
   bool _isLoading = true;
   bool _isSeller = false; // Track if current user is a seller
+  bool _isAdmin = false; // Track if current user is an admin
 
   // Product data from database
   Map<String, dynamic>? _productData;
@@ -49,6 +52,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _checkIfUserIsSeller();
+    _checkIfUserIsAdmin();
     _loadProductDetails();
     // Check favorite status directly from database in initState
     _checkFavoriteStatusDirectly();
@@ -96,6 +100,41 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
+  Future<void> _checkIfUserIsAdmin() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        setState(() {
+          _isAdmin = false;
+        });
+        return;
+      }
+
+      // Get user role from database
+      final userResponse = await _supabase
+          .from('users')
+          .select('role')
+          .eq('auth_id', user.id)
+          .maybeSingle();
+
+      if (userResponse != null) {
+        final userRole = userResponse['role'] as String?;
+        if (mounted) {
+          setState(() {
+            _isAdmin = userRole == 'admin';
+          });
+        }
+      }
+    } catch (e) {
+      print('Error checking admin role: $e');
+      if (mounted) {
+        setState(() {
+          _isAdmin = false;
+        });
+      }
+    }
+  }
+
   Future<void> _checkFavoriteStatusDirectly() async {
     final productId = widget.product['id'] as String?;
     if (productId == null) return;
@@ -109,7 +148,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .from('users')
           .select('id')
           .eq('auth_id', user.id)
-          .single();
+          .maybeSingle();
+
+      if (userResponse == null) {
+        // User not found in users table
+        if (mounted) {
+          setState(() {
+            _isFavorited = false;
+          });
+        }
+        return;
+      }
 
       final userId = userResponse['id'] as String;
 
@@ -118,7 +167,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .from('customers')
           .select('id')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
+
+      if (customerResponse == null) {
+        // Customer not found
+        if (mounted) {
+          setState(() {
+            _isFavorited = false;
+          });
+        }
+        return;
+      }
 
       final customerId = customerResponse['id'] as String;
 
@@ -138,6 +197,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     } catch (e) {
       print('Error checking favorite status directly: $e');
+      // Set favorite to false on error
+      if (mounted) {
+        setState(() {
+          _isFavorited = false;
+        });
+      }
     }
   }
 
@@ -646,8 +711,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
               ),
               
-              // Action Icons (hide for sellers)
-              if (!_isSeller)
+              // Action Icons (hide for sellers, admins, or when hideActionIcons is true)
+              if (!_isSeller && !_isAdmin && !widget.hideActionIcons)
                 Row(
                   children: [
                     const SizedBox(width: 12),

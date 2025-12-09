@@ -372,20 +372,26 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      height: 36,
-                      child: Text(
-                        productName,
-                        style: AppTextStyles.bodySmall,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    Flexible(
+                      child: SizedBox(
+                        height: 36,
+                        child: Text(
+                          productName,
+                          style: AppTextStyles.bodySmall,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      productPrice,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: Text(
+                        productPrice,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -397,9 +403,13 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                           size: 16,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          productRating.toStringAsFixed(1),
-                          style: AppTextStyles.caption,
+                        Flexible(
+                          child: Text(
+                            productRating.toStringAsFixed(1),
+                            style: AppTextStyles.caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),

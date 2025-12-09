@@ -343,10 +343,14 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
                     const SizedBox(height: 4),
                     
                     // Price
-                    Text(
-                      product['price'] as String? ?? '',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.bold,
+                    Flexible(
+                      child: Text(
+                        product['price'] as String? ?? '',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     
