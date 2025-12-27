@@ -30,9 +30,10 @@ class WelcomeScreen extends StatelessWidget {
               
               // App logo
               Image.asset(
-                'assets/images/support.png',
-                width: 100,
-                height: 100,
+                'assets/images/transparentLogo.png',
+                width: 150,
+                height: 150,
+                fit: BoxFit.contain,
               ),
               
               const SizedBox(height: 20),

@@ -533,11 +533,19 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     
     // URL encode the message
     final encodedMessage = Uri.encodeComponent(defaultMessage);
-    final uri = Uri.parse('https://wa.me/$number?text=$encodedMessage');
+    
+    // Use whatsapp:// scheme to open personal WhatsApp (not WhatsApp Business)
+    final uri = Uri.parse('whatsapp://send?phone=$number&text=$encodedMessage');
     
     try {
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        if (mounted) {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      
+      if (!launched) {
+        // Fallback to wa.me if whatsapp:// scheme fails
+        final fallbackUri = Uri.parse('https://wa.me/$number?text=$encodedMessage');
+        final fallbackLaunched = await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+        
+        if (!fallbackLaunched && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Could not open WhatsApp'),
@@ -547,13 +555,19 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open WhatsApp: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+      // Try fallback to wa.me if whatsapp:// scheme throws an error
+      try {
+        final fallbackUri = Uri.parse('https://wa.me/$number?text=$encodedMessage');
+        await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+      } catch (fallbackError) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open WhatsApp: ${e.toString()}'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
     }
   }

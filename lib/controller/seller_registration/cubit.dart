@@ -93,17 +93,28 @@ class SellerRegistrationCubit extends Cubit<SellerRegistrationState> {
       }
 
       // 1. Create auth user
+      print('📧 [Seller Registration] Starting signUp for email: $email');
       final authResponse = await _supabase.auth.signUp(
         email: email,
         password: password,
       );
 
+      print('✅ [Seller Registration] signUp call completed');
+      print('📧 [Seller Registration] AuthResponse:');
+      print('   - User: ${authResponse.user?.id ?? "null"}');
+      print('   - Email: ${authResponse.user?.email ?? "null"}');
+      print('   - Email confirmed: ${authResponse.user?.emailConfirmedAt ?? "null"}');
+      print('   - Session: ${authResponse.session?.accessToken != null ? "exists" : "null"}');
+      print('   - Full response: $authResponse');
+
       if (authResponse.user == null) {
+        print('❌ [Seller Registration] Error: User is null after signUp');
         emit(const SellerRegistrationError('Failed to create user account'));
         return;
       }
 
       final authId = authResponse.user!.id;
+      print('✅ [Seller Registration] User created with authId: $authId');
 
       // 2. Create user record in users table first (needed for storage permissions)
       final userResponseList = await _supabase.from('users').insert({
@@ -167,7 +178,7 @@ class SellerRegistrationCubit extends Cubit<SellerRegistrationState> {
       });
 
       emit(SellerRegistrationSuccess(
-        message: 'Registration successful! An OTP has been sent to your email. Please verify your email.',
+        message: 'Registration successful!',
         userId: userId.toString(),
       ));
     } on AuthException catch (e) {

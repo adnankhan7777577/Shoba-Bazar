@@ -11,43 +11,65 @@ class ForgotPasswordCubit extends Cubit<ForgotPasswordState> {
     emit(const ForgotPasswordLoading());
 
     try {
-      if (email.trim().isEmpty) {
+      final trimmedEmail = email.trim();
+      print('🔐 [sendOTP] Starting password reset for email: $trimmedEmail');
+
+      if (trimmedEmail.isEmpty) {
+        print('❌ [sendOTP] Error: Email is empty');
         emit(const ForgotPasswordError('Please enter your email address'));
         return;
       }
 
       // Validate email format
       final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-      if (!emailRegex.hasMatch(email.trim())) {
+      if (!emailRegex.hasMatch(trimmedEmail)) {
+        print('❌ [sendOTP] Error: Invalid email format: $trimmedEmail');
         emit(const ForgotPasswordError('Please enter a valid email address'));
         return;
       }
 
+      print('✅ [sendOTP] Email format validated. Calling Supabase resetPasswordForEmail...');
+
       // Send password reset email with OTP
       // Note: This requires email template configuration in Supabase to send OTP
       await _supabase.auth.resetPasswordForEmail(
-        email.trim(),
+        trimmedEmail,
         redirectTo: null, // We'll handle the reset in-app
       );
+
+      print('✅ [sendOTP] Supabase resetPasswordForEmail call completed successfully');
+      print('📧 [sendOTP] Email sent to: $trimmedEmail');
 
       emit(const ForgotPasswordEmailSent(
         'Password reset code has been sent to your email. Please check your inbox.',
       ));
+      print('✅ [sendOTP] Success state emitted');
     } on AuthException catch (e) {
+      print('❌ [sendOTP] AuthException caught:');
+      print('   Message: ${e.message}');
+      print('   Full error: $e');
+      
       // Handle specific auth errors
       if (e.message.contains('rate limit') || e.message.contains('too many')) {
+        print('⚠️ [sendOTP] Rate limit error detected');
         emit(const ForgotPasswordError(
           'Too many requests. Please wait a few minutes before trying again.',
         ));
       } else if (e.message.contains('not found') || e.message.contains('does not exist')) {
+        print('⚠️ [sendOTP] Email not found (but showing success for security)');
         // Don't reveal if email exists for security
         emit(const ForgotPasswordEmailSent(
           'If an account exists with this email, a password reset code has been sent.',
         ));
       } else {
+        print('❌ [sendOTP] Other AuthException: ${e.message}');
         emit(ForgotPasswordError('Failed to send reset code: ${e.message}'));
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ [sendOTP] General exception caught:');
+      print('   Error: $e');
+      print('   Error type: ${e.runtimeType}');
+      print('   Stack trace: $stackTrace');
       emit(ForgotPasswordError('Failed to send reset code: ${e.toString()}'));
     }
   }

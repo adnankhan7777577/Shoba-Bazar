@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'admin/screens/admin_dashboard_screen.dart';
 import 'admin/screens/admin_add_product_screen.dart';
 import 'admin/screens/admin_product_detail_screen.dart';
@@ -18,6 +19,18 @@ import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Set status bar style for both Android and iOS
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.white, // Android status bar background
+      statusBarIconBrightness: Brightness.dark, // Android - dark icons on white
+      statusBarBrightness: Brightness.light, // iOS - light status bar (dark icons)
+      systemNavigationBarColor: Colors.white, // Android navigation bar background
+      systemNavigationBarIconBrightness: Brightness.dark, // Android navigation bar icons
+    ),
+  );
+  
   await SupabaseInit.initialize();
   runApp(const MyApp());
 }

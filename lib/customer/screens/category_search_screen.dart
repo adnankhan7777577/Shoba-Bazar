@@ -4,12 +4,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../widgets/custom_dropdown.dart';
+import '../../widgets/product_card.dart';
 import '../../controller/add_product/cubit.dart';
 import '../../controller/products/cubit.dart';
 import '../../controller/products/state.dart';
 import '../../utils/responsive_utils.dart';
 import '../../utils/debouncer.dart';
-import 'product_detail_screen.dart';
 
 class CategorySearchScreen extends StatefulWidget {
   final String? categoryId;
@@ -137,9 +137,29 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
     if (_searchQuery.isEmpty) {
       return products;
     }
+    final searchLower = _searchQuery.toLowerCase();
+    final searchWords = searchLower.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    
     return products.where((product) {
       final name = (product['name'] as String? ?? '').toLowerCase();
-      return name.contains(_searchQuery.toLowerCase());
+      final nameWords = name.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+      
+      // Check if search query is a substring of product name (original behavior)
+      if (name.contains(searchLower)) {
+        return true;
+      }
+      
+      // Check if any search word matches any product name word (flexible matching)
+      for (final searchWord in searchWords) {
+        for (final nameWord in nameWords) {
+          // Check if search word is substring of name word or vice versa
+          if (nameWord.contains(searchWord) || searchWord.contains(nameWord)) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
     }).toList();
   }
 
@@ -845,140 +865,22 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
     final productRating = product['rating'] as num? ?? 0.0;
     final productData = product['product'] as Map<String, dynamic>;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailScreen(
-              product: productData,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadowLight,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product Image
-            Expanded(
-              flex: 3,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                  color: AppColors.background,
-                ),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                  child: productImage != null && productImage.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: productImage,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          placeholder: (context, url) => Container(
-                            color: AppColors.background,
-                            child: const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: AppColors.background,
-                            child: const Icon(
-                              Icons.image_not_supported,
-                              size: 40,
-                              color: AppColors.textLight,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          color: AppColors.background,
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            size: 40,
-                            color: AppColors.textLight,
-                          ),
-                        ),
-                ),
-              ),
-            ),
-            
-            // Product Details
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      height: 36,
-                      child: Text(
-                        productName,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 4),
-                    
-                    // Price
-                    Flexible(
-                      child: Text(
-                        productPrice,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 2),
-                    
-                    // Rating
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star,
-                          color: AppColors.warning,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          productRating.toStringAsFixed(1),
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textLight,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+    return ProductCard(
+      productImage: productImage,
+      productName: productName,
+      productPrice: productPrice,
+      productRating: productRating.toDouble(),
+      productData: productData,
+      useGridViewLayout: true,
+      cardColor: AppColors.surface,
+      titleStyle: AppTextStyles.bodySmall.copyWith(
+        fontWeight: FontWeight.w600,
       ),
+      priceStyle: AppTextStyles.bodyMedium.copyWith(
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+      ),
+      horizontalPadding: 12,
     );
   }
 

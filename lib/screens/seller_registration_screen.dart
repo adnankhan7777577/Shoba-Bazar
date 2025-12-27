@@ -13,7 +13,8 @@ import '../controller/seller_registration/cubit.dart';
 import '../controller/seller_registration/state.dart';
 import '../constants/country_dial_codes.dart';
 import '../utils/phone_number_utils.dart';
-import 'code_verification_screen.dart';
+import '../controller/auth_session/cubit.dart';
+import 'auth_wrapper.dart';
 
 class SellerRegistrationScreen extends StatefulWidget {
   const SellerRegistrationScreen({super.key});
@@ -192,15 +193,13 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           listener: (context, state) {
             if (state is SellerRegistrationSuccess) {
               _showSuccess(state.message);
-              // Redirect to email verification screen first
-              Navigator.pushReplacement(
-                context,
+              // Skip email verification screen and move to post-verification destination
+              context.read<AuthSessionCubit>().checkSession();
+              Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
-                  builder: (context) => CodeVerificationScreen(
-                    role: 'Seller',
-                    email: _emailController.text.trim(),
-                  ),
+                  builder: (context) => const AuthWrapper(),
                 ),
+                (route) => false,
               );
             } else if (state is SellerRegistrationError) {
               _showError(state.message);

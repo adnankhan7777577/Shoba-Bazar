@@ -46,7 +46,6 @@ class LoginCubit extends Cubit<LoginState> {
 
         final userRole = userResponse['role'] as String;
         final isActive = userResponse['is_active'] as bool;
-        final userEmail = userResponse['email'] as String? ?? authResponse.user!.email ?? '';
 
         // Check if user is active
         if (!isActive) {
@@ -54,18 +53,8 @@ class LoginCubit extends Cubit<LoginState> {
           return;
         }
 
-        // Check email verification FIRST (for all users including sellers)
-        if (authResponse.user!.emailConfirmedAt == null) {
-          // Email not verified - redirect to email verification screen
-          emit(LoginEmailUnverified(
-            email: userEmail,
-            role: userRole,
-            message: 'Your email is not verified. Please check your inbox for the verification code and enter it to verify your email address.',
-          ));
-          return;
-        }
-
-        // Email is verified, now check admin approval for sellers
+        // Skip email verification step and proceed directly to approval checks
+        // Now check admin approval for sellers
         if (userRole == 'seller') {
           final userId = userResponse['id'] as String;
           final sellerResponse = await _supabase

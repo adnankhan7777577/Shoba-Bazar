@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_carousel_widget/flutter_carousel_widget.dart';
@@ -10,10 +11,10 @@ import '../../controller/profile/state.dart';
 import '../../controller/add_product/cubit.dart';
 import '../../services/banner_service.dart';
 import '../../utils/responsive_utils.dart';
+import '../../widgets/product_card.dart';
 import 'customer_search_screen.dart';
 import 'category_search_screen.dart';
 import 'brand_search_screen.dart';
-import 'product_detail_screen.dart';
 import 'all_products_screen.dart';
 import 'all_categories_screen.dart';
 import 'all_brands_screen.dart';
@@ -30,7 +31,7 @@ class CustomerDashboardScreen extends StatefulWidget {
   State<CustomerDashboardScreen> createState() => _CustomerDashboardScreenState();
 }
 
-class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
+class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> with WidgetsBindingObserver {
   final PageController _bannerController = PageController();
   int _currentBannerIndex = 0;
   final BannerService _bannerService = BannerService();
@@ -72,6 +73,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Load banners from database
     _loadBanners();
     // Auto-scroll banner (will start after banners are loaded)
@@ -84,6 +86,40 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     _loadRecentlyAdded();
     // Load user profile
     context.read<ProfileCubit>().fetchProfile(showLoading: false);
+  }
+
+  DateTime? _lastHotDealsLoad;
+  static const _minReloadInterval = Duration(seconds: 2);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Reload Hot Deals with random products when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      _reloadHotDealsIfNeeded();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload Hot Deals when screen becomes visible (e.g., when navigating back to dashboard tab)
+    // Use a small delay and check to avoid excessive reloads
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _reloadHotDealsIfNeeded();
+      }
+    });
+  }
+
+  void _reloadHotDealsIfNeeded() {
+    final now = DateTime.now();
+    // Only reload if enough time has passed since last load
+    if (_lastHotDealsLoad == null || 
+        now.difference(_lastHotDealsLoad!) > _minReloadInterval) {
+      _lastHotDealsLoad = now;
+      _loadHotDeals();
+    }
   }
 
   Future<void> _loadBanners() async {
@@ -165,16 +201,22 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     }
 
     try {
-      // Fetch all products with their first image, only from active sellers
-      // Order by created_at ascending (oldest first) for hot deals
-      // Limit to 5 products
+      // Fetch products - limit to 12 for faster loading, then shuffle for randomness
       final productsResponse = await _supabase
           .from('products')
           .select('''
             id,
             name,
             price,
+            description,
+            usage,
+            origin,
             seller_id,
+            category_id,
+            type_id,
+            brand_id,
+            model_id,
+            created_at,
             price_types(name),
             product_categories(name),
             product_brands(name),
@@ -183,8 +225,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             product_years(year),
             sellers(user_id, approval_status, users(is_active, role))
           ''')
-          .order('created_at', ascending: true)
-          .limit(10); // Fetch more to account for filtered inactive sellers
+          .limit(12); // Fetch fewer products for faster loading
 
       // Fetch first image for each product and filter by active sellers
       final List<Map<String, dynamic>> productsWithImages = [];
@@ -218,26 +259,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           firstImage = imagesResponse[0]['image_url'] as String?;
         }
 
-        // Fetch average rating from product_ratings (same as product detail screen)
+        // Skip rating query for faster loading - use default 0.0
+        // Ratings can be loaded later if needed
         double averageRating = 0.0;
-        try {
-          final ratingsResponse = await _supabase
-              .from('product_ratings')
-              .select('rating')
-              .eq('product_id', productId);
-          
-          if (ratingsResponse.isNotEmpty) {
-            final ratings = ratingsResponse
-                .map((rating) => (rating['rating'] as num?) ?? 0.0)
-                .toList();
-            if (ratings.isNotEmpty) {
-              averageRating = ratings.reduce((a, b) => a + b) / ratings.length;
-            }
-          }
-        } catch (e) {
-          // Rating calculation failed, use default 0.0
-          // Silently handle error - rating will show as 0.0
-        }
 
         // Format price with currency
         final price = product['price'] as num? ?? 0.0;
@@ -260,17 +284,31 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           'product': product, // Store full product data for navigation
         });
         
-        // Limit to 5 products after filtering
+        // Stop immediately when we have 5 products for faster loading
         if (productsWithImages.length >= 5) {
           break;
         }
       }
       
-      if (mounted) {
-        setState(() {
-          _hotDeals = productsWithImages.take(5).toList();
-          _isLoadingHotDeals = false;
-        });
+      // Shuffle the list randomly and take 5 products
+      if (productsWithImages.isNotEmpty) {
+        productsWithImages.shuffle(Random());
+        final randomProducts = productsWithImages.take(5).toList();
+        
+        if (mounted) {
+          setState(() {
+            _hotDeals = randomProducts;
+            _isLoadingHotDeals = false;
+          });
+        }
+      } else {
+        // If no products, set empty list and stop loading
+        if (mounted) {
+          setState(() {
+            _hotDeals = [];
+            _isLoadingHotDeals = false;
+          });
+        }
       }
     } catch (e) {
       print('Error loading hot deals: $e');
@@ -433,6 +471,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _bannerController.dispose();
     super.dispose();
   }
@@ -1375,7 +1414,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     ),
                   )
                 : SizedBox(
-                    height: ResponsiveUtils.getBannerHeight(context),
+                    height: ResponsiveUtils.getProductCardImageHeight(context) + 110, // Image height + space for title, price, rating
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: _hotDeals.length,
@@ -1384,139 +1423,21 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         final productImage = deal['image'] as String?;
                         final productName = deal['name'] as String;
                         final productPrice = deal['price'] as String;
+                        final productRating = deal['rating'] as num? ?? 0.0;
                         final productData = deal['product'] as Map<String, dynamic>;
                         final cardWidth = ResponsiveUtils.isMobile(context) ? 140.0 : ResponsiveUtils.isTablet(context) ? 160.0 : 180.0;
                         
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ProductDetailScreen(
-                                  product: productData,
-                                  hideActionIcons: widget.showBackButton,
-                                ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            width: cardWidth,
-                            margin: const EdgeInsets.only(right: 16),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.shadow,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Product Image
-                                Container(
-                                  height: 92,
-                                  decoration: BoxDecoration(
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(12),
-                                      topRight: Radius.circular(12),
-                                    ),
-                                    color: AppColors.background,
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(12),
-                                      topRight: Radius.circular(12),
-                                    ),
-                                    child: productImage != null && productImage.isNotEmpty
-                                        ? CachedNetworkImage(
-                                            imageUrl: productImage,
-                                            fit: BoxFit.cover,
-                                            width: double.infinity,
-                                            height: double.infinity,
-                                            placeholder: (context, url) => Container(
-                                              width: double.infinity,
-                                              height: double.infinity,
-                                              color: AppColors.background,
-                                              child: const Center(
-                                                child: CircularProgressIndicator(strokeWidth: 2),
-                                              ),
-                                            ),
-                                            errorWidget: (context, url, error) => Container(
-                                              width: double.infinity,
-                                              height: double.infinity,
-                                              color: AppColors.background,
-                                              child: const Icon(
-                                                Icons.image_not_supported,
-                                                color: AppColors.textLight,
-                                              ),
-                                            ),
-                                          )
-                                        : Container(
-                                            width: double.infinity,
-                                            height: double.infinity,
-                                            color: AppColors.background,
-                                            child: const Icon(
-                                              Icons.image_not_supported,
-                                              color: AppColors.textLight,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                                
-                                // Product Details
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: ResponsiveUtils.isMobile(context) ? 6.0 : 8.0,
-                                    vertical: ResponsiveUtils.isMobile(context) ? 3.0 : 5.0,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        productName,
-                                        style: AppTextStyles.bodySmall,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 1.5),
-                                      Text(
-                                        productPrice,
-                                        style: AppTextStyles.bodyMedium.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 1.5),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.star,
-                                            color: AppColors.warning,
-                                            size: 12,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            (deal['rating'] as num? ?? 0.0).toStringAsFixed(1),
-                                            style: AppTextStyles.caption,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        return ProductCard(
+                          productImage: productImage,
+                          productName: productName,
+                          productPrice: productPrice,
+                          productRating: productRating.toDouble(),
+                          productData: productData,
+                          useGridViewLayout: false,
+                          cardWidth: cardWidth,
+                          imageHeight: ResponsiveUtils.getProductCardImageHeight(context),
+                          margin: const EdgeInsets.only(right: 16),
+                          hideActionIcons: widget.showBackButton,
                         );
                       },
                     ),
@@ -1623,7 +1544,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     ),
                   )
                 : SizedBox(
-                    height: ResponsiveUtils.getBannerHeight(context),
+                    height: ResponsiveUtils.getProductCardImageHeight(context) + 110, // Image height + space for title, price, rating
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: _recentlyAdded.length,
@@ -1632,139 +1553,21 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         final productImage = product['image'] as String?;
                         final productName = product['name'] as String;
                         final productPrice = product['price'] as String;
+                        final productRating = product['rating'] as num? ?? 0.0;
                         final productData = product['product'] as Map<String, dynamic>;
                         final cardWidth = ResponsiveUtils.isMobile(context) ? 140.0 : ResponsiveUtils.isTablet(context) ? 160.0 : 180.0;
                         
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ProductDetailScreen(
-                                  product: productData,
-                                  hideActionIcons: widget.showBackButton,
-                                ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            width: cardWidth,
-                            margin: const EdgeInsets.only(right: 16),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.shadow,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Product Image
-                                Container(
-                                  height: ResponsiveUtils.isMobile(context) ? 92.0 : ResponsiveUtils.isTablet(context) ? 110.0 : 125.0,
-                                  decoration: BoxDecoration(
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(12),
-                                      topRight: Radius.circular(12),
-                                    ),
-                                    color: AppColors.background,
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(12),
-                                      topRight: Radius.circular(12),
-                                    ),
-                                    child: productImage != null && productImage.isNotEmpty
-                                        ? CachedNetworkImage(
-                                            imageUrl: productImage,
-                                            fit: BoxFit.cover,
-                                            width: double.infinity,
-                                            height: double.infinity,
-                                            placeholder: (context, url) => Container(
-                                              width: double.infinity,
-                                              height: double.infinity,
-                                              color: AppColors.background,
-                                              child: const Center(
-                                                child: CircularProgressIndicator(strokeWidth: 2),
-                                              ),
-                                            ),
-                                            errorWidget: (context, url, error) => Container(
-                                              width: double.infinity,
-                                              height: double.infinity,
-                                              color: AppColors.background,
-                                              child: const Icon(
-                                                Icons.image_not_supported,
-                                                color: AppColors.textLight,
-                                              ),
-                                            ),
-                                          )
-                                        : Container(
-                                            width: double.infinity,
-                                            height: double.infinity,
-                                            color: AppColors.background,
-                                            child: const Icon(
-                                              Icons.image_not_supported,
-                                              color: AppColors.textLight,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                                
-                                // Product Details
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: ResponsiveUtils.isMobile(context) ? 6.0 : 8.0,
-                                    vertical: ResponsiveUtils.isMobile(context) ? 3.0 : 5.0,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        productName,
-                                        style: AppTextStyles.bodySmall,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 1.5),
-                                      Text(
-                                        productPrice,
-                                        style: AppTextStyles.bodyMedium.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 1),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.star,
-                                            color: AppColors.warning,
-                                            size: 14,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            (product['rating'] as num? ?? 0.0).toStringAsFixed(1),
-                                            style: AppTextStyles.caption,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        return ProductCard(
+                          productImage: productImage,
+                          productName: productName,
+                          productPrice: productPrice,
+                          productRating: productRating.toDouble(),
+                          productData: productData,
+                          useGridViewLayout: false,
+                          cardWidth: cardWidth,
+                          imageHeight: ResponsiveUtils.getProductCardImageHeight(context),
+                          margin: const EdgeInsets.only(right: 16),
+                          hideActionIcons: widget.showBackButton,
                         );
                       },
                     ),

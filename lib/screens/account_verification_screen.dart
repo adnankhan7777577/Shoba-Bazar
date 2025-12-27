@@ -166,13 +166,13 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen>
               
                 // Verification icon
                 Container(
-                  width: 120,
+                  width: 100,
                   height: 100,
                   
                   child: Padding(
-                    padding: const EdgeInsets.all(9.0),
+                    padding: const EdgeInsets.all(5.0),
                     child: Image.asset(
-                    'assets/images/Logo.png',
+                    'assets/images/transparentLogo.png',
                       fit: BoxFit.contain,
                     ),
                   ),
@@ -212,7 +212,7 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen>
                   ),
                   child: Center(
                     child: Image.asset(
-                      'assets/images/codeVerification.png',
+                      'assets/images/password.png',
                       width: 200,
                       height: 150,
                       fit: BoxFit.contain,
@@ -627,7 +627,9 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen>
     
     // URL encode the message
     final encodedMessage = Uri.encodeComponent(defaultMessage);
-    final whatsappUrl = 'https://wa.me/$cleanNumber?text=$encodedMessage';
+    
+    // Use whatsapp:// scheme to open personal WhatsApp (not WhatsApp Business)
+    final whatsappUrl = 'whatsapp://send?phone=$cleanNumber&text=$encodedMessage';
     
     try {
       final uri = Uri.parse(whatsappUrl);
@@ -637,13 +639,31 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen>
       );
       
       if (!launched) {
-        if (mounted) {
+        // Fallback to wa.me if whatsapp:// scheme fails
+        final fallbackUrl = 'https://wa.me/$cleanNumber?text=$encodedMessage';
+        final fallbackUri = Uri.parse(fallbackUrl);
+        final fallbackLaunched = await launchUrl(
+          fallbackUri,
+          mode: LaunchMode.externalApplication,
+        );
+        
+        if (!fallbackLaunched && mounted) {
           CustomSnackBar.showError(context, 'Could not open WhatsApp. Please make sure WhatsApp is installed.');
         }
       }
     } catch (e) {
-      if (mounted) {
-        CustomSnackBar.showError(context, 'Error opening WhatsApp: ${e.toString()}');
+      // Try fallback to wa.me if whatsapp:// scheme throws an error
+      try {
+        final fallbackUrl = 'https://wa.me/$cleanNumber?text=$encodedMessage';
+        final fallbackUri = Uri.parse(fallbackUrl);
+        await launchUrl(
+          fallbackUri,
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (fallbackError) {
+        if (mounted) {
+          CustomSnackBar.showError(context, 'Could not open WhatsApp. Please make sure WhatsApp is installed.');
+        }
       }
     }
   }

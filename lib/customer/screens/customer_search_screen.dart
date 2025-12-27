@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../controller/products/cubit.dart';
 import '../../controller/products/state.dart';
 import '../../utils/responsive_utils.dart';
 import '../../utils/debouncer.dart';
-import 'product_detail_screen.dart';
+import '../../widgets/product_card.dart';
 
 class CustomerSearchScreen extends StatefulWidget {
   final String? initialQuery;
@@ -40,6 +39,39 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.requestFocus();
     });
+  }
+
+  List<Map<String, dynamic>> _getFilteredProducts(List<Map<String, dynamic>> products) {
+    // Get the current search query from the controller
+    final searchQuery = _searchController.text.trim().toLowerCase();
+    if (searchQuery.isEmpty) {
+      return products;
+    }
+    
+    final searchWords = searchQuery.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    
+    return products.where((product) {
+      final name = (product['name'] as String? ?? '').toLowerCase();
+      final nameWords = name.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+      
+      // Check if search query is a substring of product name (original behavior)
+      if (name.contains(searchQuery)) {
+        return true;
+      }
+      
+      // Check if any search word matches any product name word (flexible matching)
+      for (final searchWord in searchWords) {
+        for (final nameWord in nameWords) {
+          // Check if search word is substring of name word or vice versa
+          // This handles cases like "headlight" matching "headlights" and vice versa
+          if (nameWord.contains(searchWord) || searchWord.contains(nameWord)) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    }).toList();
   }
 
   @override
@@ -102,7 +134,12 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
                     if (state.products.isEmpty) {
                       return _buildEmptyState();
                     }
-                    return _buildSearchResults(state.products);
+                    // Apply flexible matching filter
+                    final filteredProducts = _getFilteredProducts(state.products);
+                    if (filteredProducts.isEmpty) {
+                      return _buildEmptyState();
+                    }
+                    return _buildSearchResults(filteredProducts);
                   }
                   
                   return const SizedBox.shrink();
@@ -242,150 +279,26 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
     final rating = (product['rating'] as num?) ?? 0.0;
     final productData = product['product'] as Map<String, dynamic>?;
     
-    return GestureDetector(
-      onTap: () {
-        if (productData != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProductDetailScreen(
-                product: productData,
-              ),
-            ),
-          );
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadowLight,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product Image
-            Expanded(
-              flex: 3,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                  color: AppColors.background,
-                ),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                  child: imageUrl != null && imageUrl.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          placeholder: (context, url) => Container(
-                            color: AppColors.background,
-                            child: const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: AppColors.background,
-                            child: const Icon(
-                              Icons.image_not_supported,
-                              size: 40,
-                              color: AppColors.textLight,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          color: AppColors.background,
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            size: 40,
-                            color: AppColors.textLight,
-                          ),
-                        ),
-                ),
-              ),
-            ),
-            
-            // Product Details
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      height: 36,
-                      child: Text(
-                        product['name'] as String? ?? '',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 4),
-                    
-                    // Price
-                    Flexible(
-                      child: Text(
-                        product['price'] as String? ?? '',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 2),
-                    
-                    // Rating
-                    Row(
-                      children: [
-                        ...List.generate(5, (starIndex) {
-                          return Icon(
-                            starIndex < rating.floor()
-                                ? Icons.star
-                                : Icons.star_border,
-                            color: AppColors.warning,
-                            size: 14,
-                          );
-                        }),
-                        if (rating > 0) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            rating.toStringAsFixed(1),
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textLight,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+    if (productData == null) {
+      return const SizedBox.shrink();
+    }
+    
+    return ProductCard(
+      productImage: imageUrl,
+      productName: product['name'] as String? ?? '',
+      productPrice: product['price'] as String? ?? '',
+      productRating: rating.toDouble(),
+      productData: productData,
+      useGridViewLayout: true,
+      showFiveStarRating: true,
+      titleStyle: AppTextStyles.bodySmall.copyWith(
+        fontWeight: FontWeight.w600,
       ),
+      priceStyle: AppTextStyles.bodyMedium.copyWith(
+        fontWeight: FontWeight.bold,
+      ),
+      cardColor: AppColors.surface,
+      horizontalPadding: 12,
     );
   }
 

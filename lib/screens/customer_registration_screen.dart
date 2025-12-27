@@ -13,7 +13,8 @@ import '../controller/customer_registration/cubit.dart';
 import '../controller/customer_registration/state.dart';
 import '../constants/country_dial_codes.dart';
 import '../utils/phone_number_utils.dart';
-import 'code_verification_screen.dart';
+import '../controller/auth_session/cubit.dart';
+import 'auth_wrapper.dart';
 
 class CustomerRegistrationScreen extends StatefulWidget {
   const CustomerRegistrationScreen({super.key});
@@ -162,14 +163,13 @@ class _CustomerRegistrationScreenState extends State<CustomerRegistrationScreen>
           listener: (context, state) {
             if (state is CustomerRegistrationSuccess) {
               _showSuccess(state.message);
-              Navigator.pushReplacement(
-                context,
+              // Refresh auth session and move to the post-verification destination
+              context.read<AuthSessionCubit>().checkSession();
+              Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
-                  builder: (context) => CodeVerificationScreen(
-                    role: 'Customer',
-                    email: _emailController.text.trim(),
-                  ),
+                  builder: (context) => const AuthWrapper(),
                 ),
+                (route) => false,
               );
             } else if (state is CustomerRegistrationError) {
               _showError(state.message);

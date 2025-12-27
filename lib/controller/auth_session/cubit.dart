@@ -48,21 +48,11 @@ class AuthSessionCubit extends Cubit<AuthSessionState> {
             .single();
 
         final userRole = userResponse['role'] as String;
-        // Note: is_active is fetched but not used for automatic logout
+        // Note: is_active and email are fetched but not used for automatic logout
         // Users will only be logged out when they manually do it
-        final userEmail = userResponse['email'] as String? ?? user.email ?? '';
 
-        // Check email verification FIRST (for all users including sellers)
-        if (user.emailConfirmedAt == null) {
-          // Email not verified - redirect to email verification screen
-          emit(AuthSessionEmailUnverified(
-            email: userEmail,
-            role: userRole,
-          ));
-          return;
-        }
-
-        // Email is verified, now check admin approval for sellers
+        // Email verification step skipped - proceed directly to role-based checks
+        // Check admin approval for sellers
         if (userRole == 'seller') {
           final userId = userResponse['id'] as String;
           final sellerResponse = await _supabase

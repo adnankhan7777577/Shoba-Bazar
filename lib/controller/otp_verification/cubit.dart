@@ -74,6 +74,8 @@ class OtpVerificationCubit extends Cubit<OtpVerificationState> {
     emit(const OtpResendLoading());
 
     try {
+      print('📧 [Resend OTP] Starting resend for email: $email');
+      
       // Check if user is already authenticated (for login scenario)
       final currentUser = _supabase.auth.currentUser;
       final OtpType otpType;
@@ -81,20 +83,37 @@ class OtpVerificationCubit extends Cubit<OtpVerificationState> {
       if (currentUser != null && currentUser.email == email) {
         // User is logged in but email not verified - use email type
         otpType = OtpType.email;
+        print('📧 [Resend OTP] User is authenticated, using OtpType.email');
       } else {
         // New registration - use signup type
         otpType = OtpType.signup;
+        print('📧 [Resend OTP] New registration, using OtpType.signup');
       }
 
-      await _supabase.auth.resend(
+      print('📧 [Resend OTP] Calling Supabase auth.resend with type: $otpType');
+      var result = await _supabase.auth.resend(
         type: otpType,
         email: email,
       );
 
+      print('✅ [Resend OTP] Supabase resend call completed successfully');
+      print('📧 [Resend OTP] Result:');
+      print('   - Message ID: ${result.messageId ?? "null"}');
+      print('   - Full result: $result');
+      print('   - Result type: ${result.runtimeType}');
+
       emit(const OtpResendSuccess('Verification code sent to your email.'));
+      print('✅ [Resend OTP] Success state emitted');
     } on AuthException catch (e) {
+      print('❌ [Resend OTP] AuthException caught:');
+      print('   - Message: ${e.message}');
+      print('   - Full error: $e');
       emit(OtpResendError(e.message));
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ [Resend OTP] General exception caught:');
+      print('   - Error: $e');
+      print('   - Error type: ${e.runtimeType}');
+      print('   - Stack trace: $stackTrace');
       emit(OtpResendError('Failed to resend code: ${e.toString()}'));
     }
   }

@@ -964,7 +964,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     
     // URL encode the message
     final encodedMessage = Uri.encodeComponent(defaultMessage);
-    final whatsappUrl = 'https://wa.me/$cleanNumber?text=$encodedMessage';
+    
+    // Use whatsapp:// scheme to open personal WhatsApp (not WhatsApp Business)
+    // Format: whatsapp://send?phone=PHONE&text=MESSAGE
+    final whatsappUrl = 'whatsapp://send?phone=$cleanNumber&text=$encodedMessage';
     
     try {
       final uri = Uri.parse(whatsappUrl);
@@ -974,13 +977,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
       
       if (!launched) {
-        if (mounted) {
+        // Fallback to wa.me if whatsapp:// scheme fails
+        final fallbackUrl = 'https://wa.me/$cleanNumber?text=$encodedMessage';
+        final fallbackUri = Uri.parse(fallbackUrl);
+        final fallbackLaunched = await launchUrl(
+          fallbackUri,
+          mode: LaunchMode.externalApplication,
+        );
+        
+        if (!fallbackLaunched && mounted) {
           CustomSnackBar.showError(context, 'Could not open WhatsApp. Please make sure WhatsApp is installed.');
         }
       }
     } catch (e) {
-      if (mounted) {
-        CustomSnackBar.showError(context, 'Error opening WhatsApp: ${e.toString()}');
+      // Try fallback to wa.me if whatsapp:// scheme throws an error
+      try {
+        final fallbackUrl = 'https://wa.me/$cleanNumber?text=$encodedMessage';
+        final fallbackUri = Uri.parse(fallbackUrl);
+        await launchUrl(
+          fallbackUri,
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (fallbackError) {
+        if (mounted) {
+          CustomSnackBar.showError(context, 'Could not open WhatsApp. Please make sure WhatsApp is installed.');
+        }
       }
     }
   }

@@ -11,7 +11,6 @@ import '../controller/auth_session/cubit.dart';
 import 'role_selection_screen.dart';
 import 'forgot_password_screen.dart';
 import 'auth_wrapper.dart';
-import 'code_verification_screen.dart';
 import 'account_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -108,20 +107,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               );
             } else if (state is LoginEmailUnverified) {
-              _showError(state.message);
-              // Navigate to email verification screen
-              final roleCapitalized = state.role == 'customer' 
-                  ? 'Customer' 
-                  : state.role == 'seller' 
-                      ? 'Seller' 
-                      : state.role;
-              Navigator.of(context).pushReplacement(
+              // Treat unverified email the same as success and continue
+              _showSuccess('Login successful!');
+              context.read<AuthSessionCubit>().checkSession();
+              Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
-                  builder: (context) => CodeVerificationScreen(
-                    role: roleCapitalized,
-                    email: state.email,
-                  ),
+                  builder: (context) => const AuthWrapper(),
                 ),
+                (route) => false,
               );
             } else if (state is LoginError) {
               _showError(state.message);
@@ -163,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Image.asset(
                         'assets/images/loginImage.png',
                         fit: BoxFit.cover,
-                        height: 150,
+                        height: 200,
                         width: double.infinity,
                       ),
                       
@@ -427,7 +420,9 @@ class _LoginScreenState extends State<LoginScreen> {
     
     // URL encode the message
     final encodedMessage = Uri.encodeComponent(defaultMessage);
-    final whatsappUrl = 'https://wa.me/$cleanNumber?text=$encodedMessage';
+    
+    // Use whatsapp:// scheme to open personal WhatsApp (not WhatsApp Business)
+    final whatsappUrl = 'whatsapp://send?phone=$cleanNumber&text=$encodedMessage';
     
     try {
       final uri = Uri.parse(whatsappUrl);
@@ -437,13 +432,31 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       
       if (!launched) {
-        if (mounted) {
+        // Fallback to wa.me if whatsapp:// scheme fails
+        final fallbackUrl = 'https://wa.me/$cleanNumber?text=$encodedMessage';
+        final fallbackUri = Uri.parse(fallbackUrl);
+        final fallbackLaunched = await launchUrl(
+          fallbackUri,
+          mode: LaunchMode.externalApplication,
+        );
+        
+        if (!fallbackLaunched && mounted) {
           CustomSnackBar.showError(context, 'Could not open WhatsApp. Please make sure WhatsApp is installed.');
         }
       }
     } catch (e) {
-      if (mounted) {
-        CustomSnackBar.showError(context, 'Error opening WhatsApp: ${e.toString()}');
+      // Try fallback to wa.me if whatsapp:// scheme throws an error
+      try {
+        final fallbackUrl = 'https://wa.me/$cleanNumber?text=$encodedMessage';
+        final fallbackUri = Uri.parse(fallbackUrl);
+        await launchUrl(
+          fallbackUri,
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (fallbackError) {
+        if (mounted) {
+          CustomSnackBar.showError(context, 'Could not open WhatsApp. Please make sure WhatsApp is installed.');
+        }
       }
     }
   }

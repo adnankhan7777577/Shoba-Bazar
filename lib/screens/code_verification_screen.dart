@@ -189,7 +189,7 @@ class _CodeVerificationScreenState extends State<CodeVerificationScreen> {
                   
                   // Code Verification Image
                   Image.asset(
-                    'assets/images/codeVerification.png',
+                    'assets/images/password.png',
                     fit: BoxFit.cover,
                     height: 300,
                     width: double.infinity,
