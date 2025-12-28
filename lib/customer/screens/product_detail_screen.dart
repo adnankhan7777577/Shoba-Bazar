@@ -846,11 +846,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final shopAddress = seller['shop_address'] as String? ?? '';
     final profilePictureUrl = seller['avatar'] as String?;
     
-    // Build location string
+    // Build location string - filter out N/A values
     final locationParts = <String>[];
-    if (sellerCity.isNotEmpty) locationParts.add(sellerCity);
-    if (sellerCountry.isNotEmpty) locationParts.add(sellerCountry);
+    if (sellerCity.isNotEmpty && sellerCity.toUpperCase() != 'N/A') {
+      locationParts.add(sellerCity);
+    }
+    if (sellerCountry.isNotEmpty && sellerCountry.toUpperCase() != 'N/A') {
+      locationParts.add(sellerCountry);
+    }
     final location = locationParts.join(', ');
+    
+    // Check if location should be displayed (not empty and not N/A)
+    final shouldShowLocation = location.isNotEmpty && 
+                               location.toUpperCase() != 'N/A' && 
+                               !location.toUpperCase().contains('N/A');
     
     return Container(
       color: AppColors.white,
@@ -907,7 +916,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       _buildContactDetail(Icons.phone, sellerPhone),
                       const SizedBox(height: 4),
                     ],
-                    if (location.isNotEmpty) ...[
+                    if (shouldShowLocation) ...[
                       _buildContactDetail(Icons.location_on, location),
                       const SizedBox(height: 4),
                     ],

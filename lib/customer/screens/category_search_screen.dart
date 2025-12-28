@@ -34,8 +34,8 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
   
   // Filter states
   String? _selectedCategory;
-  String? _selectedType;
-  String? _selectedModel;
+  String? _selectedType = 'All';
+  String? _selectedModel = 'All';
   String? _selectedBrandId;
   String _selectedBrand = 'All';
   
@@ -99,12 +99,12 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
     }
     
     // Determine type ID
-    if (_selectedType != null) {
+    if (_selectedType != null && _selectedType != 'All') {
       final type = _types.firstWhere(
         (t) => t['name'] == _selectedType,
         orElse: () => {},
       );
-      if (type['id'] != null) {
+      if (type.isNotEmpty && type['id'] != null) {
         typeId = type['id'] as String;
       }
     }
@@ -115,12 +115,12 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
     }
     
     // Determine model ID
-    if (_selectedModel != null) {
+    if (_selectedModel != null && _selectedModel != 'All') {
       final model = _models.firstWhere(
         (m) => m['name'] == _selectedModel,
         orElse: () => {},
       );
-      if (model['id'] != null) {
+      if (model.isNotEmpty && model['id'] != null) {
         modelId = model['id'] as String;
       }
     }
@@ -138,28 +138,11 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
       return products;
     }
     final searchLower = _searchQuery.toLowerCase();
-    final searchWords = searchLower.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     
     return products.where((product) {
+      // Only match product title/name
       final name = (product['name'] as String? ?? '').toLowerCase();
-      final nameWords = name.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-      
-      // Check if search query is a substring of product name (original behavior)
-      if (name.contains(searchLower)) {
-        return true;
-      }
-      
-      // Check if any search word matches any product name word (flexible matching)
-      for (final searchWord in searchWords) {
-        for (final nameWord in nameWords) {
-          // Check if search word is substring of name word or vice versa
-          if (nameWord.contains(searchWord) || searchWord.contains(nameWord)) {
-            return true;
-          }
-        }
-      }
-      
-      return false;
+      return name.contains(searchLower);
     }).toList();
   }
 
@@ -214,11 +197,11 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
           final types = await addProductCubit.fetchTypes(categoryId: categoryId);
           setState(() {
             _types = types;
-            // Clear selected type if it's not in the new list
-            if (_selectedType != null) {
+            // Reset selected type to "All" if it's not in the new list
+            if (_selectedType != null && _selectedType != 'All') {
               final typeNames = types.map((t) => t['name'] as String).toList();
               if (!typeNames.contains(_selectedType)) {
-                _selectedType = null;
+                _selectedType = 'All';
               }
             }
           });
@@ -252,13 +235,17 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
 
   // Get type options from database - filtered by selected category
   List<String> _getTypeOptions() {
+    final options = <String>['All'];
+    
     // If "All" is selected, show all types
     if (_selectedCategory == 'All' || _selectedCategory == null) {
-      return _types
+      final typeNames = _types
           .map((type) => type['name'] as String)
           .where((name) => name.isNotEmpty)
           .toSet() // Remove duplicates
           .toList();
+      options.addAll(typeNames);
+      return options;
     }
     
     // Filter types by selected category
@@ -268,25 +255,30 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
     );
     
     if (selectedCat.isEmpty || selectedCat['id'] == null) {
-      return [];
+      return options;
     }
     
     final categoryId = selectedCat['id'] as String;
-    return _types
+    final typeNames = _types
         .where((type) => type['category_id'] == categoryId)
         .map((type) => type['name'] as String)
         .where((name) => name.isNotEmpty)
         .toSet() // Remove duplicates
         .toList();
+    options.addAll(typeNames);
+    return options;
   }
 
   // Get model options from database - remove duplicates
   List<String> _getModelOptions() {
-    return _models
+    final options = <String>['All'];
+    final modelNames = _models
         .map((model) => model['name'] as String)
         .where((name) => name.isNotEmpty)
         .toSet() // Remove duplicates
         .toList();
+    options.addAll(modelNames);
+    return options;
   }
 
   // Get brand options from database
@@ -594,7 +586,7 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
     final typeOptions = _getTypeOptions();
     final validValue = typeOptions.contains(_selectedType) 
         ? _selectedType 
-        : null;
+        : 'All';
     
     return CustomDropdown(
       value: validValue,
@@ -602,11 +594,7 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
       items: typeOptions,
       onChanged: (value) {
         setState(() {
-          _selectedType = value;
-          // If value is null, clear the filter
-          if (value == null) {
-            _selectedType = null;
-          }
+          _selectedType = value ?? 'All';
         });
         _applyFilters();
       },
@@ -617,7 +605,7 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
     final modelOptions = _getModelOptions();
     final validValue = modelOptions.contains(_selectedModel) 
         ? _selectedModel 
-        : null;
+        : 'All';
     
     return CustomDropdown(
       value: validValue,
@@ -625,11 +613,7 @@ class _CategorySearchScreenState extends State<CategorySearchScreen> {
       items: modelOptions,
       onChanged: (value) {
         setState(() {
-          _selectedModel = value;
-          // If value is null, clear the filter
-          if (value == null) {
-            _selectedModel = null;
-          }
+          _selectedModel = value ?? 'All';
         });
         _applyFilters();
       },
